@@ -1,0 +1,181 @@
+--Typescript--
+    Inicialização:
+        git init
+        yarn init -y
+
+    Pacotes:
+        yarn add -D typescript ts-node-dev @types/node
+        yarn add express pg 
+
+    Configurações do typescript:
+        yarn tsc --init
+
+    Scripts:
+        "dev": "ts-node-dev --ignore-watch node_modules src/server.ts"
+
+    Executar:
+        yarn dev
+
+    tsconfig.json:
+        "outDir": "./dist"
+
+--Express--
+    Pacotes:
+        yarn add express uuid
+        yarn add -D @types/express
+
+    App.ts:
+        const app = express();
+        app.use(express.json());
+        export default app;
+
+
+--TypeORM--
+    Pacotes:
+        yarn add typeorm reflect-metadata pg dotenv
+
+    tsconfig.json:
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "strictPropertyInitialization": false
+
+    scripts:
+        "typeorm": "typeorm-ts-node-commonjs"
+
+    data-source.ts:
+        import 'dotenv/config';
+        const AppDataSource = new DataSource(
+            process.env.NODE_ENV === 'test' ? 
+            {
+                type: 'sqlite',
+                database: ':memory:',
+                synchronize: true,
+                entities: ['src/entities/*.ts']
+            } :
+            {
+                type: 'postgres',
+                host: process.env.HOST,
+                port: 5432,
+                username: process.env.POSTGRES_USER,
+                password: process.env.POSTGRES_PASSWORD,
+                database: process.env.POSTGRES_DB,
+                logging: true,
+                synchronize: false,
+                entities: ['src/entities/*.ts'],
+                migrations: ['src/migrations/*ts']
+            }
+        )
+        export default AppDataSource;
+
+--Entities--
+    Colunas:
+        @PrimaryGeneratedColumn('uuid')
+        id: string
+
+        @Column({ default: 'column', length: 60, unique: true })
+        column: string
+
+        @CreateDateColum()
+        date: Date
+
+    Relações:
+        One to One:
+            Unidirecional:
+                //userEntity.ts
+                @OneToOne(() => Profile)
+                @JoinColum()
+                profile: Profile
+
+            Bidirecional:
+                //profileEntity.ts
+                @OneToOne(() => User, (user) => user.profile)
+                user: User
+
+                //userEntity.ts
+                @OneToOne(() => Profile, (profile) => profile.user)
+                @JoinColum
+                profile: Profile
+
+                
+
+
+
+
+
+
+--Server--
+    server.ts:
+        (async() => {
+            await AppDataSource.initialize()
+            .catch((err) => {
+                console.error("Error during Data Source initialization", err);
+            });
+
+            app.listen(3000, () => {
+                console.log("Servidor executando");
+            });
+        })()
+
+
+--Erros--
+    errors/AppError.ts:
+        export class AppError extends Error {
+            statusCode
+            constructor(statusCode: number, message: string) {
+                super()
+                this.statusCode = statusCode
+                this.message = message
+            }
+        }
+
+        export const handleError = (err: AppError, res: Response) => {
+            const {statusCode, message} err;
+            return res.status(statusCode).json({
+                status: "error",
+                statusCode,
+                message
+            });
+        }
+
+    app.ts:
+        app.use((err: Error, request: Request, response: Response, next: NextFunction) => {
+            if(err instanceof AppError) {
+                return response.status(err.statusCode).json({
+                    status: "error",
+                    message: err.message
+                });
+            }
+            console.error(err);
+            return response.status(500).json({
+                status: "error",
+                message: "Internal server error",
+            });
+        });
+
+    throw exemplo:
+        throw new AppError(400, "Already exists");
+
+    catch exemplo:
+        ... catch(error) {
+            if(error instanceof AppError) {
+                handleError(error, res);
+            }
+        }
+
+--testes--
+    pacotes:
+        yarn add -D jest ts-jest @types/jest supertest @types/supertest sqlite3
+
+    Inicialização:
+        yarn jest --init
+        Enter > Y > Enter > Enter > Enter > Enter
+
+    jest.config.ts:
+        preset: 'ts.jest',
+        testMatch: ['**/**/*.spec.ts'],
+
+    scripts:
+        "test": "NODE_ENV=test jest --verbose"
+
+    testes:
+        src/tests/services/user/testName.service.spec.ts
